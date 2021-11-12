@@ -1,4 +1,6 @@
 *.ipynb
 *.md
 *.csv
-
+*.bin
+.DS_Store
+__pycache__/
