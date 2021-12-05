@@ -9,7 +9,7 @@ import torch
 from sklearn.linear_model import Lasso
 import pandas as pd
 import statsmodels.api as sm
-from statsmodels.tsa.api import VAR
+# from statsmodels.tsa.api import VAR
 
 # for nlp
 # FinBERT
@@ -77,6 +77,9 @@ def df_word(df, word, column_name="Headlines"):
 def time_to_str(time):
     return time.strftime("%Y-%m-%d")
 
+def str_to_time(string):
+    return datetime.datetime.strptime(string, "%Y-%m-%d")
+
 # generate dates
 def generate_dates(start, end):
     start = datetime.datetime.strptime(start, "%Y-%m-%d")
@@ -109,81 +112,144 @@ def prepare_nasdaq(nasdaq, start, end, stock_name="AAPL"):
 ################ merge with quantiative data ###################
 def guar_news_nasdaq(guardian, news, nasdaq, columns_to_use=["Adj Close", "sentiment"]):
    
-   # getting timeframe aligned, concat nlp data 
-   start_guar = time_to_str(guardian.index[-1]) 
-   end_guar = time_to_str(guardian.index[0]) 
-   start_news = time_to_str(news.index[0]) 
-   end_news = time_to_str(news.index[-1]) 
+    # getting timeframe aligned, concat nlp data 
+    start_guar = time_to_str(guardian.index[-1]) 
+    end_guar = time_to_str(guardian.index[0]) 
+    start_news = time_to_str(news.index[0]) 
+    end_news = time_to_str(news.index[-1]) 
 
-   start = max(start_news, start_guar)
-   end = min(end_news, end_guar)
-   guardian = guardian[start:end]
-   news = news[start:end]
-   # nasdaq = nasdaq[start:end]
+    start = max(start_news, start_guar)
+    end = min(end_news, end_guar)
+    guardian = guardian[start:end]
+    news = news[start:end]
+    # nasdaq = nasdaq[start:end]
 
-   # concat two datas
-   data = pd.concat([news, guardian], join="outer").sort_index()
+    # concat two datas
+    data = pd.concat([news, guardian], join="outer").sort_index()
 
-   # merge for Apple data
-   data_Apple = df_word(data, "Apple")[["Headlines"]]
-   data_Apple["sentiment"] = data_Apple["Headlines"].apply(spacy_sentiment)
-   data_Apple = data_Apple[["sentiment"]].groupby(data_Apple.index).mean()
-   
-   nasdaq_Apple = prepare_nasdaq(nasdaq, start, end, "AAPL")
+    # merge for Apple data
+    data_Apple = df_word(data, "Apple")[["Headlines"]]
+    data_Apple["sentiment"] = data_Apple["Headlines"].apply(spacy_sentiment)
+    data_Apple = data_Apple[["sentiment"]].groupby(data_Apple.index).mean()
 
-   # since we are merging on nasdaq, we are not using the news from saturdays or sundays
-   data_Apple = nasdaq_Apple.merge(data_Apple, how="left", left_index=True, right_index=True)
+    nasdaq_Apple = prepare_nasdaq(nasdaq, start, end, "AAPL")
 
-   data_Apple = data_Apple[columns_to_use]
+    # since we are merging on nasdaq, we are not using the news from saturdays or sundays
+    data_Apple = nasdaq_Apple.merge(data_Apple, how="left", left_index=True, right_index=True)
 
-   return data_Apple
+    data_Apple = data_Apple[columns_to_use]
+
+    return data_Apple
 
 ################### without guardian data #####################
 def news_nadaq(news, nasdaq, columns_to_use=["Adj Close", "sentiment"]):
-   start_, end_ = time_to_str(news.index[0]), time_to_str(news.index[-1])
-   news_Apple = df_word(news, "Apple")[["Headlines"]]
-   news_Apple["sentiment"] = news_Apple["Headlines"].apply(spacy_sentiment)
-   news_Apple = news_Apple[["sentiment"]].groupby(news_Apple.index).mean()
+    start_, end_ = time_to_str(news.index[0]), time_to_str(news.index[-1])
+    news_Apple = df_word(news, "Apple")[["Headlines"]]
+    news_Apple["sentiment"] = news_Apple["Headlines"].apply(spacy_sentiment)
+    news_Apple = news_Apple[["sentiment"]].groupby(news_Apple.index).mean()
+    # 小さな値と大きな値の差が激しいと感じたため、　三乗根をとった
+    news_Apple = np.cbrt(news_Apple)
 
-   news_nasdaq_Apple = prepare_nasdaq(nasdaq, start_, end_, "AAPL")
+    news_nasdaq_Apple = prepare_nasdaq(nasdaq, start_, end_, "AAPL")
 
-   news_Apple = news_nasdaq_Apple.merge(news_Apple, how="left", left_index=True, right_index=True)
-   news_Apple = news_Apple[columns_to_use]
+    news_Apple = news_nasdaq_Apple.merge(news_Apple, how="left", left_index=True, right_index=True)
+    news_Apple = news_Apple[columns_to_use]
 
-   return news_Apple
+    return news_Apple
 
 
 if __name__ == "__main__":
-   ###################### nlp data, load everything ######################
-   # guardian is only headlines
-   guardian = pd.read_csv(guardian_path)
-   guardian.Time = pd.to_datetime(guardian.Time, errors="coerce")
-   guardian.dropna(inplace=True)
-   guardian.set_index("Time", inplace=True)
-   guardian.index.name = None
+    ###################### nlp data, load everything ######################
+    ## guardian is only headlines
+    # guardian = pd.read_csv(guardian_path)
+    # guardian.Time = pd.to_datetime(guardian.Time, errors="coerce")
+    # guardian.dropna(inplace=True)
+    # guardian.set_index("Time", inplace=True)
+    # guardian.index.name = None
 
-   # since we think any reuters data is included in news data, we only load news data
-   news = pd.read_csv(data_root + "news.csv")#, nrows=100000)
-   news["timestamp"] = news["timestamp"].apply(lambda string: string[:10])
-   news["timestamp"] = pd.to_datetime(news["timestamp"])
-   news.set_index("timestamp", inplace=True)
-   news.index.name = None
-   # renaming title to headlines
-   news.rename(columns={"title":"Headlines"}, inplace=True)
-   news = news[["Headlines"]]
+    # since we think any reuters data is included in news data, we only load news data
+    news = pd.read_csv(news_path)#, nrows=100000)
+    news["timestamp"] = news["timestamp"].apply(lambda string: string[:10])
+    news["timestamp"] = pd.to_datetime(news["timestamp"])
+    news.set_index("timestamp", inplace=True)
+    news.index.name = None
+    # renaming title to headlines
+    news.rename(columns={"title":"Headlines"}, inplace=True)
+    news = news[["Headlines"]]
 
-   ##################### quantiative data #####################
-   nasdaq = pd.read_csv(data_root + "NASDAQ_100_Data_From_2010.csv", sep="\t")
-   # resetting index to datetime
-   nasdaq.Date = pd.to_datetime(nasdaq.Date)
-   nasdaq.set_index("Date", inplace = True)
-   nasdaq["log_Volume"] = np.log(np.array(nasdaq["Volume"]+1e-9))
+    ##################### quantiative data #####################
+    nasdaq = pd.read_csv(data_root + "NASDAQ_100_Data_From_2010.csv", sep="\t")
+    # resetting index to datetime
+    nasdaq.Date = pd.to_datetime(nasdaq.Date)
+    nasdaq.set_index("Date", inplace = True)
+    nasdaq["log_Volume"] = np.log(np.array(nasdaq["Volume"]+1e-9))
 
-   # without guardian
-   # news_Apple = news_nadaq(news, nasdaq)
+    # without guardian
+    news_Apple = news_nadaq(news, nasdaq)
 
-   news_Apple = guar_news_nasdaq(guardian, news, nasdaq)
+    news_Apple.sentiment.fillna(0.0, inplace=True)
+    news_Apple = news_Apple.reindex(pd.date_range(start=news_Apple.index[0],\
+                                    end=news_Apple.index[-1]), method="nearest")
 
-   # news_Apple sentiment column still have NaN values(20 percent), we must fill them for modeling
-   news_Apple.plot()
+    # talking log because Adj Close is too big
+    news_Apple["Adj Close"] = np.log(news_Apple["Adj Close"]+1e-9).diff().diff()
+    news_Apple.dropna(inplace=True)# dropping first row cause we took diff()
+
+    # days to predict
+    steps = 10
+    forecast_idx = int(len(news_Apple.index)*0.7)
+    forecastdate = news_Apple.index[forecast_idx]  # 2020-09-28
+
+    train_df = news_Apple[news_Apple.index[0] : forecastdate - pd.offsets.Day(1)]
+    pred_exog = news_Apple[forecastdate : forecastdate + pd.offsets.Day(steps - 1)]['sentiment']
+    whole_endog = news_Apple.loc[news_Apple.index[0] : forecastdate + pd.offsets.Day(steps - 1)]["Adj Close"]
+
+    fit_with_exog = sm.tsa.statespace.SARIMAX(endog = train_df["Adj Close"],
+                                            exog = train_df["sentiment"],
+                                            enforce_invertibility=False,
+                                            order=(1, 1, 1)).fit()
+
+    fit = sm.tsa.statespace.SARIMAX(train_df["Adj Close"],
+                                enforce_invertibility=False,
+                                order=(1, 1, 1)).fit()
+
+    result_df = pd.DataFrame({
+                            "Adj Close":whole_endog.iloc[forecast_idx-20:],
+                            "pred w/ sentiment":fit_with_exog.forecast(steps=steps,exog = pred_exog),
+                            "pred":fit.forecast(steps=steps),
+                            "sentiment":pred_exog
+                            }
+                            )
+    # print(forecastdate)
+    result_df.plot(figsize=(15, 5))
+    plt.title("prediction from:{}".format(forecastdate))
+    plt.show()
+
+    # やってみた考え：sentimentは一日遅れで影響しているように見えるところもある（微妙）
+    # 次やること：逐次的に予測した結果を見る
+
+
+
+
+
+
+
+    # from the calcuations below, we conclude (1, 1, 1) is the best
+
+    # max_p = 3
+    # max_d = 3
+    # max_q = 3
+    # num = 0
+    # modelSelection = pd.DataFrame(index=range(max_p*(max_d+1)*(max_q+1)), columns=["model", "aic"])
+    # for p in tqdm.tqdm(range(1, max_p+1)):
+    #     for d in range(0, max_d+1):
+    #         for q in range(0, max_q+1):
+    #             arimax = sm.tsa.SARIMAX(endog, exog=exog, order=(p, d, q)).fit()
+    #             modelSelection.iloc[num]["model"] = "order=(" + ", ".join(map(str, [p, d, q])) + ")"
+    #             modelSelection.iloc[num]["aic"] = arimax.aic
+    #             num = num + 1
+    # print(modelSelection)
+    # print(modelSelection.loc[modelSelection.aic == min(modelSelection.aic)])
+
+
 
