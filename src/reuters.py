@@ -57,7 +57,7 @@ get_polarity(reuters, 100)
 reuters_sm = reuters[:1000].copy()
 reuters_sm["Headlines"] = reuters_sm["Headlines"].apply(nlp)
 
-
+print(reuters_sm)
 
 
 

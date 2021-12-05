@@ -27,8 +27,12 @@ import requests
 import io
 from collections import Counter
 
-#local import nasdaq
+#local import nasdaq(full size)
 from nasdaq_analysis import nasdaq
+
+# this is ok
+# print("nasdaq")
+# print(nasdaq)
 
 cnbc_path = data_root + "cnbc_headlines.csv"
 guardian_path = data_root + "guardian_headlines.csv"
@@ -57,8 +61,8 @@ def time_to_str(time):
 
 
 #とりまロイターとguardianだけ(100行)
-reuters_sm = pd.read_csv(reuters_path, nrows=100)
-guardian_sm = pd.read_csv(guardian_path, nrows=200)
+reuters_sm = pd.read_csv(reuters_path)#, nrows=100)
+guardian_sm = pd.read_csv(guardian_path)#, nrows=200)
 
 # change datetime format and make it to index
 reuters_sm.Time = pd.to_datetime(reuters_sm.Time)
@@ -70,10 +74,10 @@ guardian_sm.set_index("Time", inplace=True)
 
 # only using headlines, guardian is only headlines already
 reuters_sm = reuters_sm["Headlines"]
-start_reu = time_to_str(reuters_sm.index[0]) 
-end_reu = time_to_str(reuters_sm.index[-1])
-start_guar = time_to_str(guardian_sm.index[0]) 
-end_guar = time_to_str(guardian_sm.index[-1])
+start_reu = time_to_str(reuters_sm.index[-1]) 
+end_reu = time_to_str(reuters_sm.index[0])
+start_guar = time_to_str(guardian_sm.index[-1]) 
+end_guar = time_to_str(guardian_sm.index[0])
 start = max(start_reu, start_guar)
 end = min(end_reu, end_guar)
 

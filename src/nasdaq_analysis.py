@@ -9,7 +9,7 @@ import pandas as pd
 # for nlp
 from PIL import Image
 # from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
-import spacy
+# import spacy
 
 # plotting
 import matplotlib.pyplot as plt
@@ -36,8 +36,7 @@ nasdaq = pd.read_csv(data_root + "NASDAQ_100_Data_From_2010.csv", sep="\t", nrow
 nasdaq.Date = pd.to_datetime(nasdaq.Date)
 nasdaq.set_index("Date", inplace = True)
 
-
-#this is better
+# line plot stock price
 def line_plot_(param, stock_list, df):
     title = param 
     plt.figure()
